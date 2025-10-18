@@ -82,6 +82,7 @@ This template implements **modern 2025 authentication best practices** using the
 ### Key Architectural Decisions
 
 **✅ DO (2025 Pattern)**:
+
 - Use DAL for authentication checks
 - Use middleware ONLY for token refresh
 - Store tokens in httpOnly cookies
@@ -89,6 +90,7 @@ This template implements **modern 2025 authentication best practices** using the
 - Use Server Actions for mutations
 
 **❌ DON'T (Old Pattern)**:
+
 - Don't check auth in middleware
 - Don't store tokens in localStorage
 - Don't rely on client-side route protection
@@ -99,12 +101,14 @@ This template implements **modern 2025 authentication best practices** using the
 ## 📦 Tech Stack
 
 ### Core Framework
+
 - **Next.js 15.5.6** - React framework with App Router
 - **React 19.1.0** - UI library with Server Components
 - **TypeScript 5.x** - Type safety (strict mode)
 - **Turbopack** - Fast bundler (Next.js 15 default)
 
 ### Authentication & Database
+
 - **Supabase** - Backend as a Service
   - `@supabase/supabase-js: ^2.39.0` - Main client
   - `@supabase/ssr: ^0.1.0` - SSR auth utilities
@@ -113,11 +117,13 @@ This template implements **modern 2025 authentication best practices** using the
 - **Storage**: File uploads (optional)
 
 ### State Management
+
 - **Zustand 4.5.x** - Client state (lightweight, simple)
   - NOT for auth state (Supabase handles that)
   - Use for: UI state, preferences, temporary data
 
 ### UI & Styling
+
 - **Tailwind CSS v4** - Utility-first CSS (already installed)
 - **shadcn/ui** - Copy-paste component library
   - `@radix-ui/*` - Accessible primitives
@@ -127,15 +133,18 @@ This template implements **modern 2025 authentication best practices** using the
 - **tailwind-merge: ^2.2.1** - Merge Tailwind classes
 
 ### Forms & Validation
+
 - **react-hook-form: ^7.50.0** - Form management
 - **zod: ^3.22.4** - Schema validation
 - **@hookform/resolvers: ^3.3.4** - Connect hook-form + zod
 
 ### Utilities
+
 - **date-fns: ^3.3.0** - Date formatting
 - **jose: ^5.2.0** - JWT utilities (optional, for custom auth)
 
 ### Development Tools
+
 - **ESLint 9.x** - Linting (already configured)
 - **Prettier** - Code formatting (recommended)
 - **Playwright** - E2E testing (Phase 7)
@@ -502,6 +511,7 @@ This template follows **Approach 1: Feature-First Architecture** ⭐ for maximum
 - `types/` - Global TypeScript type definitions
 
 **Why Feature-First?**
+
 - Everything related to a feature is in one place
 - Easier for AI to understand and modify
 - Better for team collaboration
@@ -547,6 +557,7 @@ npm install date-fns
 ### 1.2 Environment Configuration
 
 Create `.env.local`:
+
 ```bash
 # Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
@@ -558,6 +569,7 @@ NODE_ENV=development
 ```
 
 Create `.env.example`:
+
 ```bash
 # Supabase Configuration
 # Get these from: https://supabase.com/dashboard/project/_/settings/api
@@ -572,6 +584,7 @@ NODE_ENV=development
 ### 1.3 Create Supabase Clients
 
 #### `src/lib/supabase/client.ts` - Browser Client
+
 ```typescript
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -584,6 +597,7 @@ export function createClient() {
 ```
 
 #### `src/lib/supabase/server.ts` - Server Client
+
 ```typescript
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -617,6 +631,7 @@ export async function createClient() {
 ```
 
 #### `src/lib/supabase/middleware.ts` - Middleware Utilities
+
 ```typescript
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
@@ -635,7 +650,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => 
+          cookiesToSet.forEach(({ name, value, options }) =>
             request.cookies.set(name, value)
           )
           supabaseResponse = NextResponse.next({
@@ -659,6 +674,7 @@ export async function updateSession(request: NextRequest) {
 ### 1.4 Create Data Access Layer (DAL) ⭐ MOST IMPORTANT
 
 #### `src/lib/dal.ts` - The Security Foundation
+
 ```typescript
 import 'server-only'
 import { cache } from 'react'
@@ -667,15 +683,15 @@ import { createClient } from '@/lib/supabase/server'
 
 /**
  * Data Access Layer (DAL) - 2025 Authentication Pattern
- * 
+ *
  * This is the CORRECT way to handle auth in Next.js 15.
- * 
+ *
  * Why DAL instead of middleware?
  * - CVE-2025-29927 vulnerability in middleware auth checks
  * - Server Components are more secure (can't be bypassed)
  * - Centralized auth logic (single source of truth)
  * - Better performance with React cache()
- * 
+ *
  * IMPORTANT: Always use getUser() for auth checks in Server Components.
  * Never check auth in middleware (security vulnerability).
  */
@@ -693,10 +709,13 @@ export const verifySession = cache(async () => {
   }
 
   const supabase = await createClient()
-  
+
   // Always use getUser() not getSession() in server code
   // getUser() validates the token with Supabase on every call
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
 
   if (error || !user) {
     return null
@@ -719,7 +738,7 @@ export const getUser = cache(async () => {
  */
 export const getUserProfile = cache(async (userId: string) => {
   const supabase = await createClient()
-  
+
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -738,18 +757,19 @@ export const getUserProfile = cache(async (userId: string) => {
 ### 1.5 Create Middleware (Token Refresh ONLY)
 
 #### `src/middleware.ts`
+
 ```typescript
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 /**
  * Next.js Middleware - 2025 Pattern
- * 
+ *
  * PURPOSE: Token refresh ONLY
- * 
+ *
  * This middleware does NOT check authentication.
  * Auth checks happen in Server Components using the DAL.
- * 
+ *
  * Why?
  * - CVE-2025-29927: Middleware auth checks are vulnerable
  * - Middleware can only modify cookies (what it's designed for)
@@ -778,6 +798,7 @@ export const config = {
 ### 1.6 Create httpOnly Cookie API Routes
 
 #### `src/app/api/auth/set/route.ts`
+
 ```typescript
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -825,11 +846,13 @@ export async function POST(request: NextRequest) {
 ```
 
 Note on production cookie attributes:
+
 - Prefer `httpOnly: true`, `secure: process.env.NODE_ENV === 'production'`, `sameSite: 'lax'`, and `path: '/'`.
 - Optionally set `domain` if serving from a subdomain.
 - Do not store auth tokens in `localStorage`.
 
 #### `src/app/api/auth/signout/route.ts`
+
 ```typescript
 import { NextResponse } from 'next/server'
 
@@ -850,6 +873,7 @@ export async function POST() {
 ### 1.7 Create Utility Functions
 
 #### `src/lib/utils.ts`
+
 ```typescript
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -879,13 +903,14 @@ export function formatError(error: unknown): string {
  * Sleep utility for testing
  */
 export function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 ```
 
 ### 1.8 TypeScript Configuration
 
 Update `tsconfig.json` with path aliases:
+
 ```json
 {
   "compilerOptions": {
@@ -920,6 +945,7 @@ Update `tsconfig.json` with path aliases:
 Set up fast feedback early so issues are caught immediately.
 
 #### package.json scripts
+
 ```json
 {
   "scripts": {
@@ -932,6 +958,7 @@ Set up fast feedback early so issues are caught immediately.
 ```
 
 #### Prettier config (`.prettierrc`)
+
 ```json
 {
   "semi": false,
@@ -941,13 +968,14 @@ Set up fast feedback early so issues are caught immediately.
 ```
 
 #### GitHub Actions CI (`.github/workflows/ci.yml`)
+
 ```yaml
 name: CI
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
@@ -966,7 +994,7 @@ jobs:
 
 Add a placeholder unit test in `tests/unit/smoke.test.ts` later in Phase 7; CI will still validate type/lint/build now.
 
-**Time Spent:** ___ hours  
+**Time Spent:** \_\_\_ hours  
 **Status:** ⏳ Pending
 
 ---
@@ -981,11 +1009,13 @@ Add a placeholder unit test in `tests/unit/smoke.test.ts` later in Phase 7; CI w
 ### 2.1 Create Authentication Feature Module
 
 First, create the authentication feature directory structure:
+
 ```bash
 mkdir -p src/features/authentication/{components,actions}
 ```
 
 #### `src/features/authentication/actions/login.ts` - Server Action
+
 ```typescript
 'use server'
 
@@ -1018,6 +1048,7 @@ export async function login(formData: FormData) {
 ```
 
 #### `src/features/authentication/components/login-form.tsx` - Login Form
+
 ```typescript
 'use client'
 
@@ -1081,6 +1112,7 @@ export function LoginForm() {
 ```
 
 #### `src/app/(auth)/login/page.tsx` - Login Page (Routing Only)
+
 ```typescript
 import { Metadata } from 'next'
 import { LoginForm } from '@/features/authentication/components/login-form'
@@ -1110,6 +1142,7 @@ export default function LoginPage() {
 ```
 
 **Notice the Feature-First Pattern:**
+
 - ✅ Server Action: `features/authentication/actions/login.ts`
 - ✅ Component: `features/authentication/components/login-form.tsx`
 - ✅ Page (routing): `app/(auth)/login/page.tsx` (imports from features/)
@@ -1117,6 +1150,7 @@ export default function LoginPage() {
 ### 2.2 Add Signup to Authentication Feature
 
 #### `src/features/authentication/actions/signup.ts` - Server Action
+
 ```typescript
 'use server'
 
@@ -1156,6 +1190,7 @@ export async function signup(formData: FormData) {
 ```
 
 #### `src/features/authentication/components/signup-form.tsx` - Signup Form
+
 ```typescript
 'use client'
 
@@ -1218,6 +1253,7 @@ export function SignupForm() {
 ```
 
 #### `src/app/(auth)/signup/page.tsx` - Signup Page (Routing Only)
+
 ```typescript
 import { Metadata } from 'next'
 import { SignupForm } from '@/features/authentication/components/signup-form'
@@ -1249,6 +1285,7 @@ export default function SignupPage() {
 ### 2.3 Email Verification
 
 #### `src/app/api/auth/confirm/route.ts`
+
 ```typescript
 import { type EmailOtpType } from '@supabase/supabase-js'
 import { type NextRequest } from 'next/server'
@@ -1280,6 +1317,7 @@ export async function GET(request: NextRequest) {
 ```
 
 #### `src/app/(auth)/verify-email/page.tsx`
+
 ```typescript
 import { Metadata } from 'next'
 
@@ -1309,6 +1347,7 @@ export default function VerifyEmailPage() {
 ### 2.4 Password Reset Flow
 
 #### `src/app/(auth)/reset-password/page.tsx`
+
 ```typescript
 import { Metadata } from 'next'
 import { ResetPasswordForm } from '@/components/auth/reset-password-form'
@@ -1340,6 +1379,7 @@ export default function ResetPasswordPage() {
 ### 2.5 Add Validation Schemas to Authentication Feature
 
 #### `src/features/authentication/validations.ts`
+
 ```typescript
 import { z } from 'zod'
 
@@ -1372,6 +1412,7 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 ### 2.6 Checklist
 
 **Feature Module Setup:**
+
 - [ ] Create `features/authentication/` directory structure (components, actions, hooks)
 - [ ] Create login Server Action (`features/authentication/actions/login.ts`)
 - [ ] Create signup Server Action (`features/authentication/actions/signup.ts`)
@@ -1382,6 +1423,7 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 - [ ] Create validation schemas (`features/authentication/validations.ts`)
 
 **Routing (App Directory):**
+
 - [ ] Create login page (`app/(auth)/login/page.tsx`)
 - [ ] Create signup page (`app/(auth)/signup/page.tsx`)
 - [ ] Create reset password page (`app/(auth)/reset-password/page.tsx`)
@@ -1389,6 +1431,7 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 - [ ] Create email confirmation API route (`app/api/auth/confirm/route.ts`)
 
 **Testing:**
+
 - [ ] Test: Login with valid credentials
 - [ ] Test: Login with invalid credentials shows error
 - [ ] Test: Signup sends verification email
@@ -1396,12 +1439,13 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 - [ ] Test: Password reset flow works
 
 **Key Concept Check:**
+
 - [ ] Understand that ALL auth logic is in `features/authentication/`
 - [ ] Understand that `app/(auth)/*/page.tsx` files only import and render
 - [ ] Verify Server Actions are in `features/authentication/actions/`
 - [ ] Verify forms are in `features/authentication/components/`
 
-**Time Spent:** ___ hours  
+**Time Spent:** \_\_\_ hours  
 **Status:** ⏳ Pending
 
 ---
@@ -1422,12 +1466,14 @@ npx shadcn@latest init
 ```
 
 **Configuration Options:**
+
 - TypeScript: Yes
 - Style: Default
 - Base color: Slate
 - CSS variables: Yes
 
 **What This Creates:**
+
 - ✅ `src/app/globals.css` - Theme CSS variables (light/dark)
 - ✅ `tailwind.config.ts` - Tailwind theme configuration
 - ✅ `components.json` - shadcn/ui config
@@ -1443,6 +1489,7 @@ shadcn/ui uses a **hybrid CSS + Tailwind approach**:
 4. **next-themes** toggles `.dark` class on `<html>` to switch themes
 
 **The Flow:**
+
 ```
 User clicks theme toggle
   ↓
@@ -1460,6 +1507,7 @@ Entire app re-colors instantly! ✨
 The `npx shadcn@latest init` command creates this file. Verify it looks like this:
 
 **`tailwind.config.ts`**
+
 ```typescript
 import type { Config } from 'tailwindcss'
 
@@ -1526,6 +1574,7 @@ export default config
 The init command also creates this file. Verify it includes the theme variables:
 
 **`src/app/globals.css`**
+
 ```css
 @tailwind base;
 @tailwind components;
@@ -1534,63 +1583,63 @@ The init command also creates this file. Verify it includes the theme variables:
 @layer base {
   :root {
     /* Light mode colors - HSL values without hsl() wrapper */
-    --background: 0 0% 100%;           /* White */
-    --foreground: 222.2 84% 4.9%;      /* Dark gray text */
-    
+    --background: 0 0% 100%; /* White */
+    --foreground: 222.2 84% 4.9%; /* Dark gray text */
+
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-    
+
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    
-    --primary: 221.2 83.2% 53.3%;      /* Blue */
+
+    --primary: 221.2 83.2% 53.3%; /* Blue */
     --primary-foreground: 210 40% 98%; /* Light text on blue */
-    
-    --secondary: 210 40% 96.1%;        /* Light gray */
+
+    --secondary: 210 40% 96.1%; /* Light gray */
     --secondary-foreground: 222.2 47.4% 11.2%;
-    
+
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    
+
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
-    
-    --destructive: 0 84.2% 60.2%;      /* Red */
+
+    --destructive: 0 84.2% 60.2%; /* Red */
     --destructive-foreground: 210 40% 98%;
-    
+
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
-    
-    --radius: 0.5rem;                  /* Border radius */
+
+    --radius: 0.5rem; /* Border radius */
   }
-  
+
   .dark {
     /* Dark mode colors */
-    --background: 222.2 84% 4.9%;      /* Dark background */
-    --foreground: 210 40% 98%;         /* Light text */
-    
+    --background: 222.2 84% 4.9%; /* Dark background */
+    --foreground: 210 40% 98%; /* Light text */
+
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
-    
+
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    
-    --primary: 217.2 91.2% 59.8%;      /* Lighter blue */
+
+    --primary: 217.2 91.2% 59.8%; /* Lighter blue */
     --primary-foreground: 222.2 47.4% 11.2%;
-    
-    --secondary: 217.2 32.6% 17.5%;    /* Dark gray */
+
+    --secondary: 217.2 32.6% 17.5%; /* Dark gray */
     --secondary-foreground: 210 40% 98%;
-    
+
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    
+
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    
-    --destructive: 0 62.8% 30.6%;      /* Darker red */
+
+    --destructive: 0 62.8% 30.6%; /* Darker red */
     --destructive-foreground: 210 40% 98%;
-    
+
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
@@ -1608,6 +1657,7 @@ The init command also creates this file. Verify it includes the theme variables:
 ```
 
 **How to Use These Colors:**
+
 ```tsx
 // In your components, use Tailwind classes:
 <div className="bg-background text-foreground">
@@ -1627,7 +1677,7 @@ To change the theme colors, modify the HSL values in `globals.css`:
 ```css
 :root {
   /* Change primary to green instead of blue */
-  --primary: 142.1 76.2% 36.3%;  /* Green */
+  --primary: 142.1 76.2% 36.3%; /* Green */
   --primary-foreground: 355.7 100% 97.3%;
 }
 ```
@@ -1656,6 +1706,7 @@ npx shadcn@latest add badge
 ```
 
 **What These Components Are:**
+
 - `button` - Buttons with variants (primary, secondary, outline, ghost)
 - `input` - Text input fields
 - `label` - Form labels
@@ -1674,6 +1725,7 @@ npx shadcn@latest add badge
 ### 3.3 Theme Provider
 
 #### `src/components/providers/theme-provider.tsx`
+
 ```typescript
 'use client'
 
@@ -1687,6 +1739,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
 ```
 
 #### `src/components/layout/theme-toggle.tsx`
+
 ```typescript
 'use client'
 
@@ -1733,6 +1786,7 @@ export function ThemeToggle() {
 ### 3.4 Update Root Layout
 
 #### `src/app/layout.tsx`
+
 ```typescript
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
@@ -1776,6 +1830,7 @@ export default function RootLayout({
 ### 3.5 Toast Hook
 
 #### `src/hooks/use-toast.ts`
+
 ```typescript
 'use client'
 
@@ -1796,6 +1851,7 @@ export { toast } from 'sonner'
 ### 3.6 Form Components with react-hook-form
 
 #### Example Form Component
+
 ```typescript
 'use client'
 
@@ -1877,7 +1933,7 @@ export function ExampleForm() {
 - [ ] Test: Toasts display properly
 - [ ] Test: All shadcn/ui components respect theme
 
-**Time Spent:** ___ hours  
+**Time Spent:** \_\_\_ hours  
 **Status:** ⏳ Pending
 
 ---
@@ -1892,6 +1948,7 @@ export function ExampleForm() {
 ### 4.1 Smart Homepage (Server Component)
 
 #### `src/app/page.tsx`
+
 ```typescript
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/dal'
@@ -1899,11 +1956,11 @@ import { LoginForm } from '@/components/auth/login-form'
 
 /**
  * Smart Homepage - Routes based on auth state
- * 
+ *
  * This is a Server Component that decides what to show:
  * - Unauthenticated: Show login form
  * - Authenticated: Redirect to dashboard
- * 
+ *
  * Benefits:
  * - Zero flicker (decision on server)
  * - SEO friendly
@@ -1939,6 +1996,7 @@ export default async function HomePage() {
 ### 4.2 Protected Dashboard Layout (Auth Gate)
 
 #### `src/app/(dashboard)/layout.tsx` ⭐ CRITICAL
+
 ```typescript
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/dal'
@@ -1947,20 +2005,20 @@ import { Sidebar } from '@/components/layout/sidebar'
 
 /**
  * Dashboard Layout with Auth Gate
- * 
+ *
  * This is the NEW 2025 pattern for protecting routes.
- * 
+ *
  * How it works:
  * 1. Server Component calls getUser() from DAL
  * 2. If no user, redirect to login
  * 3. If user exists, render protected content
- * 
+ *
  * Why Server Component instead of middleware?
  * - CVE-2025-29927: Middleware auth is vulnerable
  * - Can't be bypassed by client
  * - Zero flicker (decision before HTML sent)
  * - Better performance with React cache()
- * 
+ *
  * IMPORTANT: This is the security gate for ALL dashboard routes.
  */
 export default async function DashboardLayout({
@@ -1996,6 +2054,7 @@ export default async function DashboardLayout({
 ### 4.3 Dashboard Page
 
 #### `src/app/(dashboard)/dashboard/page.tsx`
+
 ```typescript
 import { Metadata } from 'next'
 import { getUser, getUserProfile } from '@/lib/dal'
@@ -2056,6 +2115,7 @@ export default async function DashboardPage() {
 ### 4.4 Header Component
 
 #### `src/components/layout/header.tsx`
+
 ```typescript
 import { User } from '@supabase/supabase-js'
 import { UserNav } from './user-nav'
@@ -2082,6 +2142,7 @@ export function Header({ user }: HeaderProps) {
 ### 4.5 Sidebar Component
 
 #### `src/components/layout/sidebar.tsx`
+
 ```typescript
 'use client'
 
@@ -2156,6 +2217,7 @@ export function Sidebar({ user }: SidebarProps) {
 ### 4.6 User Navigation
 
 #### `src/components/layout/user-nav.tsx`
+
 ```typescript
 'use client'
 
@@ -2183,10 +2245,10 @@ export function UserNav({ user }: UserNavProps) {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
-    
+
     // Clear httpOnly cookies
     await fetch('/api/auth/signout', { method: 'POST' })
-    
+
     router.push('/')
     router.refresh()
   }
@@ -2231,6 +2293,7 @@ export function UserNav({ user }: UserNavProps) {
 ### 4.7 Settings Page
 
 #### `src/app/(dashboard)/settings/page.tsx`
+
 ```typescript
 import { Metadata } from 'next'
 import { getUser } from '@/lib/dal'
@@ -2274,7 +2337,7 @@ export default async function SettingsPage() {
 - [ ] Test: No flicker on protected routes
 - [ ] Test: Theme toggle works in dashboard
 
-**Time Spent:** ___ hours  
+**Time Spent:** \_\_\_ hours  
 **Status:** ⏳ Pending
 
 ---
@@ -2289,6 +2352,7 @@ export default async function SettingsPage() {
 ### 5.1 Create Database Schema
 
 #### `supabase/migrations/001_initial_schema.sql`
+
 ```sql
 -- Create profiles table
 CREATE TABLE IF NOT EXISTS profiles (
@@ -2394,6 +2458,7 @@ npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/datab
 ```
 
 #### `src/types/database.ts` (Generated)
+
 ```typescript
 export type Json =
   | string
@@ -2466,6 +2531,7 @@ export interface Database {
 ### 5.3 Notes List Page
 
 #### `src/app/(dashboard)/notes/page.tsx`
+
 ```typescript
 import { Metadata } from 'next'
 import Link from 'next/link'
@@ -2483,7 +2549,7 @@ export const metadata: Metadata = {
 
 export default async function NotesPage() {
   const user = await getUser()
-  
+
   if (!user) {
     return null // Layout will redirect
   }
@@ -2548,6 +2614,7 @@ export default async function NotesPage() {
 ### 5.4 Notes Actions (Server Actions)
 
 #### `src/app/(dashboard)/notes/actions.ts`
+
 ```typescript
 'use server'
 
@@ -2558,7 +2625,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function createNote(formData: FormData) {
   const user = await getUser()
-  
+
   if (!user) {
     return { error: 'Unauthorized' }
   }
@@ -2592,7 +2659,7 @@ export async function createNote(formData: FormData) {
 
 export async function updateNote(noteId: string, formData: FormData) {
   const user = await getUser()
-  
+
   if (!user) {
     return { error: 'Unauthorized' }
   }
@@ -2619,7 +2686,7 @@ export async function updateNote(noteId: string, formData: FormData) {
 
 export async function deleteNote(noteId: string) {
   const user = await getUser()
-  
+
   if (!user) {
     return { error: 'Unauthorized' }
   }
@@ -2644,6 +2711,7 @@ export async function deleteNote(noteId: string) {
 ### 5.5 Note Detail Page
 
 #### `src/app/(dashboard)/notes/[id]/page.tsx`
+
 ```typescript
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
@@ -2663,7 +2731,7 @@ export default async function NotePage({
   params: { id: string }
 }) {
   const user = await getUser()
-  
+
   if (!user) {
     return null
   }
@@ -2711,7 +2779,7 @@ export default async function NotePage({
 - [ ] Test: Delete a note
 - [ ] Test: RLS policies prevent unauthorized access
 
-**Time Spent:** ___ hours  
+**Time Spent:** \_\_\_ hours  
 **Status:** ⏳ Pending
 
 ---
@@ -2732,6 +2800,7 @@ npm install zustand
 ### 6.2 Auth Store (Client Sync)
 
 #### `src/stores/auth-store.ts`
+
 ```typescript
 import { create } from 'zustand'
 import { User } from '@supabase/supabase-js'
@@ -2756,10 +2825,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    
+
     // Clear httpOnly cookies
     await fetch('/api/auth/signout', { method: 'POST' })
-    
+
     set({ user: null })
   },
 
@@ -2769,11 +2838,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const supabase = createClient()
 
     // Get initial session
-    const { data: { session } } = await supabase.auth.getSession()
-    
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
     if (session?.user) {
       set({ user: session.user, isLoading: false, initialized: true })
-      
+
       // Sync cookies
       await fetch('/api/auth/set', {
         method: 'POST',
@@ -2791,7 +2862,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         set({ user: session.user })
-        
+
         // Sync cookies on auth change
         await fetch('/api/auth/set', {
           method: 'POST',
@@ -2812,6 +2883,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 ### 6.3 UI Store
 
 #### `src/stores/ui-store.ts`
+
 ```typescript
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -2826,7 +2898,8 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       sidebarOpen: true,
-      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      toggleSidebar: () =>
+        set((state) => ({ sidebarOpen: !state.sidebarOpen })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
     }),
     {
@@ -2839,6 +2912,7 @@ export const useUIStore = create<UIState>()(
 ### 6.4 User Store (Preferences)
 
 #### `src/stores/user-store.ts`
+
 ```typescript
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -2877,6 +2951,7 @@ export const useUserStore = create<UserState>()(
 ### 6.5 Initialize Auth Store
 
 #### `src/components/providers/auth-provider.tsx`
+
 ```typescript
 'use client'
 
@@ -2895,6 +2970,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 ```
 
 Update root layout to include AuthProvider:
+
 ```typescript
 // In src/app/layout.tsx
 import { AuthProvider } from '@/components/providers/auth-provider'
@@ -2951,7 +3027,7 @@ export function ExampleComponent() {
 - [ ] Test: UI preferences persist across sessions
 - [ ] Test: Stores work with Server Component data
 
-**Time Spent:** ___ hours  
+**Time Spent:** \_\_\_ hours  
 **Status:** ⏳ Pending
 
 ---
@@ -2979,6 +3055,7 @@ npm install -D @types/jest ts-jest
 ### 7.2 Configure Playwright
 
 #### `playwright.config.ts`
+
 ```typescript
 import { defineConfig, devices } from '@playwright/test'
 
@@ -3012,6 +3089,7 @@ export default defineConfig({
 ### 7.3 E2E Tests
 
 #### `tests/e2e/auth.spec.ts`
+
 ```typescript
 import { test, expect } from '@playwright/test'
 
@@ -3028,18 +3106,18 @@ test.describe('Authentication', () => {
     await page.getByLabel('Email').fill('invalid@example.com')
     await page.getByLabel('Password').fill('wrongpassword')
     await page.getByRole('button', { name: 'Sign in' }).click()
-    
+
     await expect(page.getByText('Error')).toBeVisible()
   })
 
   test('should redirect to dashboard after login', async ({ page }) => {
     await page.goto('/')
-    
+
     // Use test credentials
     await page.getByLabel('Email').fill('test@example.com')
     await page.getByLabel('Password').fill('password123')
     await page.getByRole('button', { name: 'Sign in' }).click()
-    
+
     await expect(page).toHaveURL('/dashboard')
     await expect(page.getByText('Dashboard')).toBeVisible()
   })
@@ -3047,7 +3125,7 @@ test.describe('Authentication', () => {
   test('should protect dashboard route', async ({ page }) => {
     // Try to access dashboard without auth
     await page.goto('/dashboard')
-    
+
     // Should redirect to homepage
     await expect(page).toHaveURL('/')
   })
@@ -3055,6 +3133,7 @@ test.describe('Authentication', () => {
 ```
 
 #### `tests/e2e/dashboard.spec.ts`
+
 ```typescript
 import { test, expect } from '@playwright/test'
 
@@ -3081,7 +3160,7 @@ test.describe('Dashboard', () => {
   test('should sign out', async ({ page }) => {
     await page.getByRole('button', { name: /account/i }).click()
     await page.getByRole('menuitem', { name: 'Sign out' }).click()
-    
+
     await expect(page).toHaveURL('/')
   })
 })
@@ -3090,6 +3169,7 @@ test.describe('Dashboard', () => {
 ### 7.4 Configure Jest
 
 #### `jest.config.js`
+
 ```javascript
 const nextJest = require('next/jest')
 
@@ -3110,6 +3190,7 @@ module.exports = createJestConfig(customJestConfig)
 ```
 
 #### `jest.setup.js`
+
 ```javascript
 import '@testing-library/jest-dom'
 ```
@@ -3117,6 +3198,7 @@ import '@testing-library/jest-dom'
 ### 7.5 Unit Tests
 
 #### `tests/unit/dal.test.ts`
+
 ```typescript
 import { describe, it, expect, jest } from '@jest/globals'
 
@@ -3139,20 +3221,20 @@ describe('Data Access Layer', () => {
 
     const { verifySession } = require('@/lib/dal')
     const result = await verifySession()
-    
+
     expect(result).toBeNull()
   })
 
   it('should return user when valid token', async () => {
     const mockUser = { id: '123', email: 'test@example.com' }
-    
+
     const { cookies } = require('next/headers')
     const { createClient } = require('@/lib/supabase/server')
-    
+
     cookies.mockResolvedValue({
       get: jest.fn().mockReturnValue({ value: 'valid-token' }),
     })
-    
+
     createClient.mockResolvedValue({
       auth: {
         getUser: jest.fn().mockResolvedValue({
@@ -3164,13 +3246,14 @@ describe('Data Access Layer', () => {
 
     const { verifySession } = require('@/lib/dal')
     const result = await verifySession()
-    
+
     expect(result).toEqual(mockUser)
   })
 })
 ```
 
 #### `tests/unit/validations.test.ts`
+
 ```typescript
 import { describe, it, expect } from '@jest/globals'
 import { loginSchema, signupSchema } from '@/lib/validations'
@@ -3182,7 +3265,7 @@ describe('Validation Schemas', () => {
         email: 'test@example.com',
         password: 'password123',
       })
-      
+
       expect(result.success).toBe(true)
     })
 
@@ -3191,7 +3274,7 @@ describe('Validation Schemas', () => {
         email: 'invalid-email',
         password: 'password123',
       })
-      
+
       expect(result.success).toBe(false)
     })
   })
@@ -3202,7 +3285,7 @@ describe('Validation Schemas', () => {
         email: 'test@example.com',
         password: 'weak',
       })
-      
+
       expect(result.success).toBe(false)
     })
 
@@ -3211,7 +3294,7 @@ describe('Validation Schemas', () => {
         email: 'test@example.com',
         password: 'StrongPass123',
       })
-      
+
       expect(result.success).toBe(true)
     })
   })
@@ -3235,29 +3318,30 @@ describe('Validation Schemas', () => {
 ### 7.7 ESLint Configuration
 
 Update `eslint.config.mjs`:
-```javascript
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+```javascript
+import { dirname } from 'path'
+import { fileURLToPath } from 'url'
+import { FlatCompat } from '@eslint/eslintrc'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
-});
+})
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     rules: {
       '@typescript-eslint/no-unused-vars': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
-];
+]
 
-export default eslintConfig;
+export default eslintConfig
 ```
 
 ### 7.8 Checklist
@@ -3275,7 +3359,7 @@ export default eslintConfig;
 - [ ] Run `npm run test:e2e` - all E2E tests pass
 - [ ] Run `npm run lint` - no errors
 
-**Time Spent:** ___ hours  
+**Time Spent:** \_\_\_ hours  
 **Status:** ⏳ Pending
 
 ---
@@ -3290,6 +3374,7 @@ export default eslintConfig;
 ### 8.1 Vercel Deployment
 
 #### `vercel.json` (Optional)
+
 ```json
 {
   "buildCommand": "npm run build",
@@ -3303,6 +3388,7 @@ export default eslintConfig;
 #### Deployment Steps
 
 1. **Push to GitHub**
+
 ```bash
 git init
 git add .
@@ -3313,12 +3399,14 @@ git push -u origin main
 ```
 
 2. **Connect to Vercel**
+
 - Go to [vercel.com](https://vercel.com)
 - Import your GitHub repository
 - Configure environment variables
 - Deploy
 
 3. **Environment Variables on Vercel**
+
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
@@ -3329,7 +3417,8 @@ NODE_ENV=production
 ### 8.2 Update README.md
 
 #### `README.md`
-```markdown
+
+````markdown
 # Next.js Template with 2025 Authentication
 
 A modern, production-ready Next.js 15 template with authentication using the **2025 Data Access Layer (DAL) pattern**.
@@ -3345,7 +3434,7 @@ A modern, production-ready Next.js 15 template with authentication using the **2
 ✅ **Zustand** - Client state management  
 ✅ **react-hook-form + zod** - Type-safe forms  
 ✅ **Playwright + Jest** - E2E and unit testing  
-✅ **Dark Mode** - With next-themes  
+✅ **Dark Mode** - With next-themes
 
 ## Security Architecture
 
@@ -3370,22 +3459,27 @@ This template implements the **correct 2025 authentication pattern**:
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone YOUR_REPO_URL
 cd nextjs_template
 ```
+````
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Copy environment variables:
+
 ```bash
 cp .env.example .env.local
 ```
 
 4. Update `.env.local` with your Supabase credentials:
+
 ```
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -3393,6 +3487,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 5. Run the development server:
+
 ```bash
 npm run dev
 ```
@@ -3405,6 +3500,7 @@ Open [http://localhost:3000](http://localhost:3000)
 2. Navigate to SQL Editor
 3. Run the migration from `supabase/migrations/001_initial_schema.sql`
 4. Generate TypeScript types:
+
 ```bash
 npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/database.ts
 ```
@@ -3453,11 +3549,13 @@ npm run test:e2e     # Run Playwright E2E tests
 ## Testing
 
 ### Unit Tests (Jest)
+
 ```bash
 npm test
 ```
 
 ### E2E Tests (Playwright)
+
 ```bash
 npm run test:e2e
 ```
@@ -3475,6 +3573,7 @@ npm run test:e2e
 ### Environment Variables
 
 Required for production:
+
 ```
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -3497,7 +3596,8 @@ NEXT_PUBLIC_APP_URL
 ## License
 
 MIT
-```
+
+````
 
 ### 8.3 Architecture Documentation
 
@@ -3541,7 +3641,7 @@ export default async function DashboardLayout({ children }) {
   if (!user) redirect('/login')
   return <>{children}</>
 }
-```
+````
 
 ### Architecture Layers
 
@@ -3569,7 +3669,7 @@ export default async function DashboardLayout({ children }) {
 ✅ **Performance**: React cache() prevents duplicate calls  
 ✅ **UX**: Zero flicker (decision before render)  
 ✅ **Maintainability**: Centralized auth logic  
-✅ **Testing**: Easy to test pure functions  
+✅ **Testing**: Easy to test pure functions
 
 ### Key Principles
 
@@ -3582,6 +3682,7 @@ export default async function DashboardLayout({ children }) {
 ## Data Flow
 
 ### Login Flow
+
 ```
 1. User submits form (Client Component)
 2. Server Action validates credentials
@@ -3594,6 +3695,7 @@ export default async function DashboardLayout({ children }) {
 ```
 
 ### Protected Route Access
+
 ```
 1. User navigates to /dashboard
 2. Middleware refreshes token if needed
@@ -3606,6 +3708,7 @@ export default async function DashboardLayout({ children }) {
 ## Technology Choices
 
 ### Why Supabase?
+
 - Complete auth solution (no DIY needed)
 - Built-in Row Level Security
 - Real-time subscriptions
@@ -3613,18 +3716,21 @@ export default async function DashboardLayout({ children }) {
 - Edge functions
 
 ### Why Zustand?
+
 - Simple API (less boilerplate than Redux)
 - Better TypeScript support than Context
 - Lightweight (< 1KB)
 - Perfect for client-side UI state
 
 ### Why shadcn/ui?
+
 - Copy-paste (not npm package)
 - Full customization
 - Accessible by default (Radix UI)
 - Modern design
 
 ### Why Server Components?
+
 - Better performance (less JavaScript)
 - SEO-friendly
 - Secure (auth logic on server)
@@ -3636,7 +3742,8 @@ export default async function DashboardLayout({ children }) {
 - [Supabase SSR Guide](https://supabase.com/docs/guides/auth/server-side/nextjs)
 - [CVE-2025-29927 Details](https://nvd.nist.gov/vuln/detail/CVE-2025-29927)
 - [Francisco Moretti: Modern Next.js Auth](https://www.franciscomoretti.com/blog/modern-nextjs-authentication-best-practices-2025)
-```
+
+````
 
 ### 8.4 Deployment Documentation
 
@@ -3661,9 +3768,10 @@ git commit -m "Initial commit"
 git branch -M main
 git remote add origin YOUR_REPO_URL
 git push -u origin main
-```
+````
 
 2. **Import to Vercel**
+
 - Go to https://vercel.com
 - Click "Add New Project"
 - Import your GitHub repository
@@ -3672,6 +3780,7 @@ git push -u origin main
 3. **Configure Environment Variables**
 
 Click "Environment Variables" and add:
+
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
@@ -3680,6 +3789,7 @@ NODE_ENV=production
 ```
 
 4. **Deploy**
+
 - Click "Deploy"
 - Wait for build to complete
 - Visit your app!
@@ -3687,12 +3797,14 @@ NODE_ENV=production
 ### Post-Deployment
 
 1. **Update Supabase Auth Settings**
+
 - Go to Supabase Dashboard
 - Navigate to Authentication > URL Configuration
 - Add your Vercel URL to "Site URL"
 - Add `https://your-app.vercel.app/api/auth/confirm` to "Redirect URLs"
 
 2. **Test Authentication**
+
 - Sign up for a new account
 - Check email verification
 - Test login
@@ -3703,6 +3815,7 @@ NODE_ENV=production
 ### Steps
 
 1. **Create netlify.toml**
+
 ```toml
 [build]
   command = "npm run build"
@@ -3713,6 +3826,7 @@ NODE_ENV=production
 ```
 
 2. **Deploy to Netlify**
+
 - Go to https://netlify.com
 - Click "Add new site"
 - Import from Git
@@ -3722,6 +3836,7 @@ NODE_ENV=production
 ## Environment Variables
 
 ### Required
+
 ```
 NEXT_PUBLIC_SUPABASE_URL        # Your Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY   # Your Supabase anon/public key
@@ -3729,6 +3844,7 @@ NEXT_PUBLIC_APP_URL             # Your app's URL (production)
 ```
 
 ### Optional
+
 ```
 NODE_ENV=production             # Set automatically by hosting platforms
 ```
@@ -3772,16 +3888,19 @@ NODE_ENV=production             # Set automatically by hosting platforms
 ## Monitoring
 
 ### Vercel Analytics
+
 - Enable in Vercel dashboard
 - Monitor page views, performance
 - Track Core Web Vitals
 
 ### Supabase Logs
+
 - Check Authentication logs
 - Monitor database queries
 - Review API usage
 
 ### Error Tracking (Optional)
+
 - Sentry
 - LogRocket
 - Datadog
@@ -3804,11 +3923,13 @@ If something goes wrong:
 4. Wait for SSL certificate
 
 ### Update Environment Variables
+
 ```
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
 ```
 
 ### Update Supabase
+
 - Add custom domain to Site URL
 - Update redirect URLs
 
@@ -3817,11 +3938,13 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 ### Running Migrations in Production
 
 1. **Using Supabase Dashboard**
+
 - Go to SQL Editor
 - Run migration scripts
 - Verify changes
 
 2. **Using Supabase CLI**
+
 ```bash
 # Link to production project
 supabase link --project-ref YOUR_PROJECT_ID
@@ -3833,16 +3956,19 @@ supabase db push
 ## Troubleshooting
 
 ### Build Fails
+
 - Check build logs
 - Verify all dependencies in package.json
 - Test build locally first
 
 ### Authentication Not Working
+
 - Verify environment variables
 - Check Supabase URL configuration
 - Confirm redirect URLs are correct
 
 ### Protected Routes Not Working
+
 - Check DAL implementation
 - Verify middleware is running
 - Check browser cookies
@@ -3852,7 +3978,8 @@ supabase db push
 - [Vercel Documentation](https://vercel.com/docs)
 - [Netlify Documentation](https://docs.netlify.com)
 - [Supabase Support](https://supabase.com/docs)
-```
+
+````
 
 ### 8.5 Supabase Setup Documentation
 
@@ -3879,10 +4006,12 @@ supabase db push
 2. Copy your Project URL
 3. Copy your anon/public key
 4. Add to `.env.local`:
-```
+````
+
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
-```
+
+````
 
 ## Run Database Migration
 
@@ -3908,7 +4037,7 @@ npx supabase link --project-ref YOUR_PROJECT_ID
 
 # Push migrations
 npx supabase db push
-```
+````
 
 ## Configure Authentication
 
@@ -3963,6 +4092,7 @@ CREATE POLICY "Users can view their own notes"
 ```
 
 This ensures:
+
 - Users can ONLY access their own data
 - Impossible to bypass (enforced at database level)
 - Works with generated API automatically
@@ -3975,11 +4105,12 @@ npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/datab
 ```
 
 This creates type-safe database queries:
+
 ```typescript
 // Type-safe query
 const { data } = await supabase
-  .from('notes')  // ✅ Autocomplete
-  .select('*')    // ✅ Type-checked columns
+  .from('notes') // ✅ Autocomplete
+  .select('*') // ✅ Type-checked columns
 ```
 
 ## Test Your Setup
@@ -3994,6 +4125,7 @@ npm run dev
 ```
 
 Check:
+
 - ✅ Email sent
 - ✅ Confirmation link works
 - ✅ User created in Supabase dashboard
@@ -4006,6 +4138,7 @@ Check:
 ```
 
 Check:
+
 - ✅ Tables created
 - ✅ RLS enabled
 - ✅ Policies active
@@ -4074,25 +4207,30 @@ Update `.env.local` with local credentials for development.
 ### Realtime
 
 Subscribe to database changes:
+
 ```typescript
 const subscription = supabase
   .channel('notes')
-  .on('postgres_changes', {
-    event: '*',
-    schema: 'public',
-    table: 'notes'
-  }, (payload) => {
-    console.log('Change received!', payload)
-  })
+  .on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'notes',
+    },
+    (payload) => {
+      console.log('Change received!', payload)
+    }
+  )
   .subscribe()
 ```
 
 ### Storage
 
 Upload files:
+
 ```typescript
-const { data, error } = await supabase
-  .storage
+const { data, error } = await supabase.storage
   .from('avatars')
   .upload('public/avatar1.png', file)
 ```
@@ -4100,6 +4238,7 @@ const { data, error } = await supabase
 ### Edge Functions
 
 Deploy serverless functions:
+
 ```bash
 npx supabase functions new my-function
 npx supabase functions deploy my-function
@@ -4111,7 +4250,8 @@ npx supabase functions deploy my-function
 - [SQL Reference](https://supabase.com/docs/guides/database)
 - [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
-```
+
+````
 
 ### 8.6 Final Checklist
 
@@ -4129,7 +4269,7 @@ npx supabase functions deploy my-function
 - [ ] Set up error monitoring (optional)
 - [ ] Configure custom domain (optional)
 
-**Time Spent:** ___ hours  
+**Time Spent:** ___ hours
 **Status:** ⏳ Pending
 
 ---
@@ -4171,27 +4311,27 @@ const nextConfig: NextConfig = {
 }
 
 export default nextConfig
-```
+````
 
 Notes:
+
 - Update `connect-src` if you add more external APIs.
 - If you load fonts or analytics/CDNs, allow them in CSP accordingly.
 - Keep `X-Frame-Options: DENY` unless you intentionally embed the app.
 
-
 ## 📊 Total Project Timeline
 
-| Phase | Time Estimate | Priority | Status |
-|-------|---------------|----------|--------|
-| Phase 1: Foundation & DAL | 6-8 hours | CRITICAL | ⏳ Pending |
-| Phase 2: Authentication | 8-10 hours | HIGH | ⏳ Pending |
-| Phase 3: Protected Routes | 6-8 hours | HIGH | ⏳ Pending |
-| Phase 4: UI Foundation | 10-12 hours | HIGH | ⏳ Pending |
-| Phase 5: Database Operations | 6-8 hours | MEDIUM | ⏳ Pending |
-| Phase 6: Client State | 4-6 hours | MEDIUM | ⏳ Pending |
-| Phase 7: Testing | 8-10 hours | MEDIUM | ⏳ Pending |
-| Phase 8: Deployment | 4-6 hours | HIGH | ⏳ Pending |
-| **TOTAL** | **52-68 hours** | | |
+| Phase                        | Time Estimate   | Priority | Status     |
+| ---------------------------- | --------------- | -------- | ---------- |
+| Phase 1: Foundation & DAL    | 6-8 hours       | CRITICAL | ⏳ Pending |
+| Phase 2: Authentication      | 8-10 hours      | HIGH     | ⏳ Pending |
+| Phase 3: Protected Routes    | 6-8 hours       | HIGH     | ⏳ Pending |
+| Phase 4: UI Foundation       | 10-12 hours     | HIGH     | ⏳ Pending |
+| Phase 5: Database Operations | 6-8 hours       | MEDIUM   | ⏳ Pending |
+| Phase 6: Client State        | 4-6 hours       | MEDIUM   | ⏳ Pending |
+| Phase 7: Testing             | 8-10 hours      | MEDIUM   | ⏳ Pending |
+| Phase 8: Deployment          | 4-6 hours       | HIGH     | ⏳ Pending |
+| **TOTAL**                    | **52-68 hours** |          |            |
 
 ---
 
@@ -4205,13 +4345,14 @@ At the end of implementation, the template should have:
 ✅ **DX**: Type-safe, well-documented, easy to extend  
 ✅ **Testing**: >70% code coverage  
 ✅ **Production**: Deployable immediately  
-✅ **Quality**: 0 ESLint errors, 0 TypeScript errors  
+✅ **Quality**: 0 ESLint errors, 0 TypeScript errors
 
 ---
 
 ## 📚 Additional Resources
 
 ### Official Documentation
+
 - [Next.js 15 Docs](https://nextjs.org/docs)
 - [Supabase Docs](https://supabase.com/docs)
 - [shadcn/ui](https://ui.shadcn.com)
@@ -4219,16 +4360,19 @@ At the end of implementation, the template should have:
 - [Zustand](https://docs.pmnd.rs/zustand)
 
 ### Security References
+
 - [CVE-2025-29927 Details](https://nvd.nist.gov/vuln/detail/CVE-2025-29927)
 - [Next.js Security Best Practices](https://nextjs.org/docs/app/guides/security)
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 
 ### Blog Posts & Guides
+
 - [Francisco Moretti: Modern Next.js Auth (2025)](https://www.franciscomoretti.com/blog/modern-nextjs-authentication-best-practices-2025)
 - [Building Secure Next.js Apps with DAL](https://logicloop.dev/frontend-frameworks/secure-nextjs-authentication-data-access-layers)
 - [Supabase SSR Guide](https://supabase.com/docs/guides/auth/server-side/nextjs)
 
 ### Community
+
 - [Next.js Discord](https://nextjs.org/discord)
 - [Supabase Discord](https://discord.supabase.com)
 - [Reddit r/nextjs](https://reddit.com/r/nextjs)
@@ -4240,6 +4384,7 @@ At the end of implementation, the template should have:
 When you complete all phases, you'll have a **production-ready Next.js 15 template** implementing the correct 2025 authentication pattern.
 
 This template is:
+
 - ✅ **Secure** - CVE-2025-29927 mitigations
 - ✅ **Modern** - Latest Next.js 15 patterns
 - ✅ **Fast** - Server Components + React cache()
