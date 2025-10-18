@@ -18,8 +18,8 @@ This template implements **modern 2025 authentication best practices** using the
 - [Project Structure](#project-structure)
 - [Phase 1: Foundation & DAL Setup](#phase-1-foundation--dal-setup-critical)
 - [Phase 2: Authentication System](#phase-2-authentication-system)
-- [Phase 3: UI Foundation System](#phase-3-ui-foundation-system)
-- [Phase 4: Protected Routes](#phase-4-protected-routes--layout-gates)
+- [Phase 3: Protected Routes](#phase-3-protected-routes--layout-gates)
+- [Phase 4: UI Foundation System](#phase-4-ui-foundation-system)
 - [Phase 5: Database Operations](#phase-5-database-operations)
 - [Phase 6: Client State Management](#phase-6-client-state-management)
 - [Phase 7: Testing & Quality](#phase-7-testing--quality)
@@ -42,7 +42,7 @@ This template implements **modern 2025 authentication best practices** using the
 │  • Detects expired access tokens                                │
 │  • Calls Supabase refreshSession()                              │
 │  • Updates httpOnly cookies                                     │
-│  • Rate limiting for API routes                                 │
+│  • Rate limiting (skipped initially)                            │
 └────────────────────────┬────────────────────────────────────────┘
                          │ ✅ Fresh cookies
                          ▼
@@ -108,7 +108,7 @@ This template implements **modern 2025 authentication best practices** using the
 - **Supabase** - Backend as a Service
   - `@supabase/supabase-js: ^2.39.0` - Main client
   - `@supabase/ssr: ^0.1.0` - SSR auth utilities
-- **Authentication**: Email/password, OAuth ready
+- **Authentication**: Email/password only (social login deferred)
 - **Database**: Postgres with Row Level Security
 - **Storage**: File uploads (optional)
 
@@ -143,19 +143,17 @@ This template implements **modern 2025 authentication best practices** using the
 
 ---
 
-## 📁 Project Structure
+## 📁 Project Structure (Feature-First Architecture)
 
 ```
 nextjs_template/
 ├── src/
-│   ├── app/                        # App Router (Next.js 15)
+│   ├── app/                        # App Router (Next.js 15) - ROUTING ONLY
 │   │   ├── (auth)/                # Route group - public auth pages
 │   │   │   ├── login/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── actions.ts     # Server Actions
+│   │   │   │   └── page.tsx       # Just the page, actions in features/
 │   │   │   ├── signup/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── actions.ts
+│   │   │   │   └── page.tsx
 │   │   │   ├── reset-password/
 │   │   │   │   └── page.tsx
 │   │   │   └── verify-email/
@@ -168,70 +166,104 @@ nextjs_template/
 │   │   │   ├── profile/
 │   │   │   │   └── page.tsx
 │   │   │   ├── settings/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── actions.ts
-│   │   │   └── notes/             # Example CRUD
+│   │   │   │   └── page.tsx
+│   │   │   └── notes/             # Just routing
 │   │   │       ├── page.tsx
-│   │   │       ├── [id]/
-│   │   │       │   └── page.tsx
-│   │   │       └── actions.ts
+│   │   │       └── [id]/
+│   │   │           └── page.tsx
 │   │   │
 │   │   ├── api/                   # API Routes
-│   │   │   ├── auth/
-│   │   │   │   ├── set/
-│   │   │   │   │   └── route.ts   # Set httpOnly cookies
-│   │   │   │   ├── signout/
-│   │   │   │   │   └── route.ts   # Clear cookies
-│   │   │   │   └── confirm/
-│   │   │   │       └── route.ts   # Email verification
-│   │   │   └── ...
+│   │   │   └── auth/
+│   │   │       ├── set/
+│   │   │       │   └── route.ts   # Set httpOnly cookies
+│   │   │       ├── signout/
+│   │   │       │   └── route.ts   # Clear cookies
+│   │   │       └── confirm/
+│   │   │           └── route.ts   # Email verification
 │   │   │
 │   │   ├── layout.tsx             # Root layout
 │   │   ├── page.tsx               # Homepage (smart routing)
 │   │   ├── globals.css            # Global styles
 │   │   └── error.tsx              # Error page
 │   │
-│   ├── components/                # Reusable components
-│   │   ├── ui/                    # shadcn/ui components
+│   ├── features/                  # 🎯 FEATURE MODULES (Everything grouped by feature)
+│   │   ├── authentication/
+│   │   │   ├── components/
+│   │   │   │   ├── login-form.tsx
+│   │   │   │   ├── signup-form.tsx
+│   │   │   │   └── reset-password-form.tsx
+│   │   │   ├── actions/
+│   │   │   │   ├── login.ts       # Server Actions
+│   │   │   │   ├── signup.ts
+│   │   │   │   └── reset-password.ts
+│   │   │   ├── hooks/
+│   │   │   │   └── use-auth.ts
+│   │   │   ├── validations.ts     # Zod schemas for auth
+│   │   │   └── types.ts           # Auth-specific types
+│   │   │
+│   │   ├── dashboard/
+│   │   │   ├── components/
+│   │   │   │   ├── stats-card.tsx
+│   │   │   │   ├── recent-activity.tsx
+│   │   │   │   └── overview-chart.tsx
+│   │   │   ├── hooks/
+│   │   │   │   └── use-dashboard-data.ts
+│   │   │   └── types.ts
+│   │   │
+│   │   ├── notes/
+│   │   │   ├── components/
+│   │   │   │   ├── note-card.tsx
+│   │   │   │   ├── note-list.tsx
+│   │   │   │   ├── create-note-dialog.tsx
+│   │   │   │   ├── edit-note-form.tsx
+│   │   │   │   └── delete-note-button.tsx
+│   │   │   ├── actions/
+│   │   │   │   ├── create-note.ts
+│   │   │   │   ├── update-note.ts
+│   │   │   │   └── delete-note.ts
+│   │   │   ├── hooks/
+│   │   │   │   └── use-notes.ts
+│   │   │   ├── validations.ts
+│   │   │   └── types.ts
+│   │   │
+│   │   └── profile/
+│   │       ├── components/
+│   │       │   ├── profile-form.tsx
+│   │       │   ├── avatar-upload.tsx
+│   │       │   └── profile-settings.tsx
+│   │       ├── actions/
+│   │       │   └── update-profile.ts
+│   │       ├── hooks/
+│   │       │   └── use-profile.ts
+│   │       ├── validations.ts
+│   │       └── types.ts
+│   │
+│   ├── components/                # ONLY truly shared components
+│   │   ├── ui/                    # shadcn/ui primitives
 │   │   │   ├── button.tsx
 │   │   │   ├── input.tsx
 │   │   │   ├── card.tsx
 │   │   │   ├── dialog.tsx
 │   │   │   ├── form.tsx
-│   │   │   ├── toast.tsx
 │   │   │   └── ...
-│   │   ├── auth/                  # Auth-specific
-│   │   │   ├── login-form.tsx
-│   │   │   ├── signup-form.tsx
-│   │   │   └── reset-password-form.tsx
-│   │   ├── layout/                # Layout components
+│   │   ├── layout/                # App-wide layout components
 │   │   │   ├── header.tsx
 │   │   │   ├── sidebar.tsx
 │   │   │   ├── footer.tsx
+│   │   │   ├── user-nav.tsx
 │   │   │   └── theme-toggle.tsx
 │   │   └── providers/
 │   │       └── theme-provider.tsx
 │   │
-│   ├── lib/                       # Core utilities
+│   ├── lib/                       # Core utilities (used across features)
 │   │   ├── dal.ts                 # 🔑 DATA ACCESS LAYER (CRITICAL)
 │   │   ├── supabase/             # Supabase clients
 │   │   │   ├── client.ts         # Browser client
 │   │   │   ├── server.ts         # Server client
 │   │   │   └── middleware.ts     # Token refresh utilities
-│   │   ├── utils.ts              # Helper functions (cn, etc.)
-│   │   └── validations.ts        # Zod schemas
+│   │   └── utils.ts              # Helper functions (cn, etc.)
 │   │
-│   ├── hooks/                     # Custom React hooks
-│   │   ├── use-user.ts           # Auth hooks
-│   │   ├── use-toast.ts          # Toast notifications
-│   │   └── use-media-query.ts    # Responsive helpers
-│   │
-│   ├── stores/                    # Zustand stores
-│   │   ├── auth-store.ts         # Client auth sync
-│   │   ├── ui-store.ts           # UI state (sidebar, modals)
-│   │   └── user-store.ts         # User preferences
-│   │
-│   ├── types/                     # TypeScript types
+│   ├── types/                     # Global TypeScript types
 │   │   ├── database.ts           # Supabase generated types
 │   │   ├── supabase.ts           # Supabase client types
 │   │   └── index.ts              # Common types
@@ -275,6 +307,208 @@ nextjs_template/
 ├── README.md
 └── RECOMMENDED_ROADMAP.md        # This file
 ```
+
+---
+
+## 🗂️ Modern Next.js Folder Structure (2025 Best Practices)
+
+Based on current industry standards and the official Next.js documentation, here are the **three recommended approaches** for organizing your Next.js 15 project:
+
+### **Approach 1: Feature-First Architecture** ⭐ RECOMMENDED FOR SCALABILITY
+
+This approach organizes code by business features/modules, making it ideal for medium to large applications.
+
+```
+nextjs_template/
+├── src/
+│   ├── app/                        # Next.js App Router (routing only)
+│   │   ├── (auth)/                # Route group - public auth pages
+│   │   │   ├── login/
+│   │   │   ├── signup/
+│   │   │   └── reset-password/
+│   │   ├── (dashboard)/           # Route group - protected pages
+│   │   │   ├── layout.tsx         # 🔒 Auth gate
+│   │   │   ├── dashboard/
+│   │   │   ├── profile/
+│   │   │   └── settings/
+│   │   ├── api/                   # API routes
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   │
+│   ├── features/                  # Feature-based modules
+│   │   ├── authentication/
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   ├── utils/
+│   │   │   └── types.ts
+│   │   ├── dashboard/
+│   │   ├── notes/
+│   │   └── profile/
+│   │
+│   ├── components/                # Shared components
+│   │   ├── ui/                    # shadcn/ui components
+│   │   ├── layout/                # Layout components
+│   │   └── shared/                # Shared across features
+│   │
+│   ├── lib/                       # Core utilities
+│   │   ├── dal.ts                 # 🔑 Data Access Layer
+│   │   ├── supabase/
+│   │   ├── utils.ts
+│   │   └── validations.ts
+│   │
+│   ├── hooks/                     # Custom React hooks
+│   ├── stores/                    # Zustand stores
+│   ├── types/                     # TypeScript types
+│   └── middleware.ts
+│
+├── public/                        # Static assets
+├── tests/                         # E2E and unit tests
+└── supabase/                      # Database migrations
+```
+
+### **Approach 2: App-Centric Structure** (Keep app/ for routing only)
+
+This is the structure we're using in this template. It keeps the `app` directory focused purely on routing.
+
+```
+nextjs_template/
+├── src/
+│   ├── app/                       # ONLY routing logic
+│   │   ├── (auth)/               # Auth routes
+│   │   ├── (dashboard)/          # Protected routes
+│   │   ├── api/                  # API routes
+│   │   └── layout.tsx
+│   │
+│   ├── components/               # All components
+│   │   ├── ui/                   # UI primitives
+│   │   ├── auth/                 # Auth components
+│   │   └── layout/               # Layout components
+│   │
+│   ├── lib/                      # Business logic
+│   │   ├── dal.ts                # Auth layer
+│   │   └── supabase/
+│   │
+│   ├── hooks/                    # React hooks
+│   ├── stores/                   # Client state
+│   └── types/                    # TypeScript types
+```
+
+### **Approach 3: Colocation Strategy** (Co-locate code with routes)
+
+Store feature code directly inside the `app` directory alongside routes.
+
+```
+nextjs_template/
+├── app/
+│   ├── dashboard/
+│   │   ├── components/           # Dashboard-specific components
+│   │   ├── hooks/                # Dashboard-specific hooks
+│   │   ├── utils/                # Dashboard-specific utilities
+│   │   ├── page.tsx
+│   │   └── layout.tsx
+│   │
+│   ├── notes/
+│   │   ├── components/
+│   │   ├── [id]/
+│   │   │   └── page.tsx
+│   │   └── page.tsx
+│   │
+│   └── settings/
+│       ├── components/
+│       └── page.tsx
+```
+
+### **Key 2025 Features to Leverage**
+
+1. **Private Folders** - Prefix with underscore: `_folderName`
+   - Marks implementation details that shouldn't be in URLs
+   - Example: `app/_components/` won't create a route
+
+2. **Route Groups** - Use parentheses: `(groupName)`
+   - Organize routes without affecting URL structure
+   - Example: `app/(auth)/login` → URL is `/login` (no "auth" in URL)
+   - Example: `app/(dashboard)/settings` → URL is `/settings`
+
+3. **Parallel Routes** - Use `@folder` syntax
+   - Render multiple pages in the same layout
+   - Example: `app/@modal/` for modal routes
+
+4. **Intercepting Routes** - Use `(..)` syntax
+   - Intercept navigation to show different UI
+   - Example: Photo galleries, modals
+
+### **Component Organization Pattern**
+
+```
+components/
+├── ui/                            # Basic reusable components
+│   ├── button.tsx                # No business logic
+│   ├── input.tsx                 # Pure UI primitives
+│   ├── card.tsx
+│   └── dialog.tsx
+│
+├── layout/                        # Structural components
+│   ├── header.tsx                # App-wide layout pieces
+│   ├── sidebar.tsx
+│   └── footer.tsx
+│
+├── auth/                          # Feature-specific
+│   ├── login-form.tsx            # Business logic included
+│   └── signup-form.tsx
+│
+└── shared/                        # Shared across features
+    ├── data-table.tsx
+    └── file-upload.tsx
+```
+
+### **Common Mistakes to Avoid** ❌
+
+1. **Don't dump everything in `app` directory**
+   - ❌ Bad: `app/login/LoginForm.tsx`, `app/login/utils.ts`, `app/login/types.ts`
+   - ✅ Good: Keep only `page.tsx` and `layout.tsx` in `app/`, move rest to `components/` or `lib/`
+
+2. **Don't have 200+ files in a single folder**
+   - ❌ Bad: `components/` with 200 components
+   - ✅ Good: `components/ui/`, `components/auth/`, `components/layout/`
+
+3. **Don't nest more than 4-5 directories deep**
+   - ❌ Bad: `src/features/auth/components/forms/login/fields/email/validation/schema.ts`
+   - ✅ Good: `src/features/auth/components/login-form.tsx`
+
+4. **Don't mix routing logic with business logic**
+   - ❌ Bad: Complex business logic in `app/*/page.tsx`
+   - ✅ Good: Server Actions in separate `actions.ts`, utilities in `lib/`
+
+### **Pro Tips** 💡
+
+1. **Use `src/` folder** to separate app code from config files
+2. **Keep `app` directory focused on routing** - business logic goes elsewhere
+3. **Group related functionality** in feature modules for better maintainability
+4. **Be consistent** - choose one strategy and stick with it across the project
+5. **Use TypeScript path aliases** (`@/*`) to avoid `../../../` imports
+
+### **This Template's Chosen Structure**
+
+This template follows **Approach 1: Feature-First Architecture** ⭐ for maximum clarity and AI-assisted development:
+
+- `app/` - Pure routing (pages, layouts, API routes only)
+- `features/` - All business features with their own components, hooks, utils, and types
+  - `features/authentication/` - Login, signup, password reset
+  - `features/dashboard/` - Dashboard-specific code
+  - `features/notes/` - Notes CRUD feature
+  - `features/profile/` - User profile management
+- `components/` - Only truly shared components (UI primitives, layouts)
+- `lib/` - Core utilities and the DAL (used across all features)
+- `types/` - Global TypeScript type definitions
+
+**Why Feature-First?**
+- Everything related to a feature is in one place
+- Easier for AI to understand and modify
+- Better for team collaboration
+- Scales naturally as you add features
+- Simple to add or remove entire features
+
+This structure makes it crystal clear what each part of your codebase does, making it perfect for AI-assisted development and team projects of any size.
 
 ---
 
@@ -590,6 +824,11 @@ export async function POST(request: NextRequest) {
 }
 ```
 
+Note on production cookie attributes:
+- Prefer `httpOnly: true`, `secure: process.env.NODE_ENV === 'production'`, `sameSite: 'lax'`, and `path: '/'`.
+- Optionally set `domain` if serving from a subdomain.
+- Do not store auth tokens in `localStorage`.
+
 #### `src/app/api/auth/signout/route.ts`
 ```typescript
 import { NextResponse } from 'next/server'
@@ -676,6 +915,57 @@ Update `tsconfig.json` with path aliases:
 - [ ] Test: Can create Supabase client without errors
 - [ ] Test: Middleware doesn't break existing pages
 
+### 1.10 Quality Baseline (Lint/Format/CI)
+
+Set up fast feedback early so issues are caught immediately.
+
+#### package.json scripts
+```json
+{
+  "scripts": {
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  }
+}
+```
+
+#### Prettier config (`.prettierrc`)
+```json
+{
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all"
+}
+```
+
+#### GitHub Actions CI (`.github/workflows/ci.yml`)
+```yaml
+name: CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+```
+
+Add a placeholder unit test in `tests/unit/smoke.test.ts` later in Phase 7; CI will still validate type/lint/build now.
+
 **Time Spent:** ___ hours  
 **Status:** ⏳ Pending
 
@@ -688,38 +978,14 @@ Update `tsconfig.json` with path aliases:
 **Priority:** HIGH  
 **Dependencies:** Phase 1 complete
 
-### 2.1 Create Login Page with Server Actions
+### 2.1 Create Authentication Feature Module
 
-#### `src/app/(auth)/login/page.tsx`
-```typescript
-import { Metadata } from 'next'
-import { LoginForm } from '@/components/auth/login-form'
-
-export const metadata: Metadata = {
-  title: 'Login',
-  description: 'Login to your account',
-}
-
-export default function LoginPage() {
-  return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-        <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Enter your email to sign in to your account
-          </p>
-        </div>
-        <LoginForm />
-      </div>
-    </div>
-  )
-}
+First, create the authentication feature directory structure:
+```bash
+mkdir -p src/features/authentication/{components,actions}
 ```
 
-#### `src/app/(auth)/login/actions.ts`
+#### `src/features/authentication/actions/login.ts` - Server Action
 ```typescript
 'use server'
 
@@ -751,20 +1017,18 @@ export async function login(formData: FormData) {
 }
 ```
 
-#### `src/components/auth/login-form.tsx`
+#### `src/features/authentication/components/login-form.tsx` - Login Form
 ```typescript
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { login } from '@/app/(auth)/login/actions'
+import { login } from '@/features/authentication/actions/login'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/hooks/use-toast'
 
 export function LoginForm() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -816,38 +1080,43 @@ export function LoginForm() {
 }
 ```
 
-### 2.2 Create Signup Page
-
-#### `src/app/(auth)/signup/page.tsx`
+#### `src/app/(auth)/login/page.tsx` - Login Page (Routing Only)
 ```typescript
 import { Metadata } from 'next'
-import { SignupForm } from '@/components/auth/signup-form'
+import { LoginForm } from '@/features/authentication/components/login-form'
 
 export const metadata: Metadata = {
-  title: 'Sign Up',
-  description: 'Create a new account',
+  title: 'Login',
+  description: 'Login to your account',
 }
 
-export default function SignupPage() {
+export default function LoginPage() {
   return (
     <div className="container flex h-screen w-screen flex-col items-center justify-center">
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Create an account
+            Welcome back
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter your email below to create your account
+            Enter your email to sign in to your account
           </p>
         </div>
-        <SignupForm />
+        <LoginForm />
       </div>
     </div>
   )
 }
 ```
 
-#### `src/app/(auth)/signup/actions.ts`
+**Notice the Feature-First Pattern:**
+- ✅ Server Action: `features/authentication/actions/login.ts`
+- ✅ Component: `features/authentication/components/login-form.tsx`
+- ✅ Page (routing): `app/(auth)/login/page.tsx` (imports from features/)
+
+### 2.2 Add Signup to Authentication Feature
+
+#### `src/features/authentication/actions/signup.ts` - Server Action
 ```typescript
 'use server'
 
@@ -883,6 +1152,97 @@ export async function signup(formData: FormData) {
 
   revalidatePath('/', 'layout')
   redirect('/verify-email')
+}
+```
+
+#### `src/features/authentication/components/signup-form.tsx` - Signup Form
+```typescript
+'use client'
+
+import { useState } from 'react'
+import { signup } from '@/features/authentication/actions/signup'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { toast } from '@/hooks/use-toast'
+
+export function SignupForm() {
+  const [isLoading, setIsLoading] = useState(false)
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setIsLoading(true)
+
+    const formData = new FormData(event.currentTarget)
+    const result = await signup(formData)
+
+    if (result?.error) {
+      toast({
+        title: 'Error',
+        description: result.error,
+        variant: 'destructive',
+      })
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="name@example.com"
+          required
+          disabled={isLoading}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          required
+          disabled={isLoading}
+        />
+      </div>
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading ? 'Creating account...' : 'Create account'}
+      </Button>
+    </form>
+  )
+}
+```
+
+#### `src/app/(auth)/signup/page.tsx` - Signup Page (Routing Only)
+```typescript
+import { Metadata } from 'next'
+import { SignupForm } from '@/features/authentication/components/signup-form'
+
+export const metadata: Metadata = {
+  title: 'Sign Up',
+  description: 'Create a new account',
+}
+
+export default function SignupPage() {
+  return (
+    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+        <div className="flex flex-col space-y-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Create an account
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Enter your email below to create your account
+          </p>
+        </div>
+        <SignupForm />
+      </div>
+    </div>
+  )
 }
 ```
 
@@ -977,9 +1337,9 @@ export default function ResetPasswordPage() {
 }
 ```
 
-### 2.5 Validation Schemas
+### 2.5 Add Validation Schemas to Authentication Feature
 
-#### `src/lib/validations.ts`
+#### `src/features/authentication/validations.ts`
 ```typescript
 import { z } from 'zod'
 
@@ -1007,31 +1367,46 @@ export type SignupInput = z.infer<typeof signupSchema>
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 ```
 
+**Notice:** Validations are in the feature folder (`features/authentication/validations.ts`), not a global `lib/validations.ts`. This keeps all auth-related code together!
+
 ### 2.6 Checklist
 
-- [ ] Create login page (`(auth)/login/page.tsx`)
-- [ ] Create login Server Action (`(auth)/login/actions.ts`)
-- [ ] Create login form component (`components/auth/login-form.tsx`)
-- [ ] Create signup page (`(auth)/signup/page.tsx`)
-- [ ] Create signup Server Action (`(auth)/signup/actions.ts`)
-- [ ] Create signup form component
-- [ ] Create email confirmation route (`api/auth/confirm/route.ts`)
-- [ ] Create verify email page
-- [ ] Create password reset page
-- [ ] Create password reset form
-- [ ] Create validation schemas (`lib/validations.ts`)
+**Feature Module Setup:**
+- [ ] Create `features/authentication/` directory structure (components, actions, hooks)
+- [ ] Create login Server Action (`features/authentication/actions/login.ts`)
+- [ ] Create signup Server Action (`features/authentication/actions/signup.ts`)
+- [ ] Create reset password Server Action (`features/authentication/actions/reset-password.ts`)
+- [ ] Create login form component (`features/authentication/components/login-form.tsx`)
+- [ ] Create signup form component (`features/authentication/components/signup-form.tsx`)
+- [ ] Create reset password form (`features/authentication/components/reset-password-form.tsx`)
+- [ ] Create validation schemas (`features/authentication/validations.ts`)
+
+**Routing (App Directory):**
+- [ ] Create login page (`app/(auth)/login/page.tsx`)
+- [ ] Create signup page (`app/(auth)/signup/page.tsx`)
+- [ ] Create reset password page (`app/(auth)/reset-password/page.tsx`)
+- [ ] Create verify email page (`app/(auth)/verify-email/page.tsx`)
+- [ ] Create email confirmation API route (`app/api/auth/confirm/route.ts`)
+
+**Testing:**
 - [ ] Test: Login with valid credentials
 - [ ] Test: Login with invalid credentials shows error
 - [ ] Test: Signup sends verification email
 - [ ] Test: Email verification link works
 - [ ] Test: Password reset flow works
 
+**Key Concept Check:**
+- [ ] Understand that ALL auth logic is in `features/authentication/`
+- [ ] Understand that `app/(auth)/*/page.tsx` files only import and render
+- [ ] Verify Server Actions are in `features/authentication/actions/`
+- [ ] Verify forms are in `features/authentication/components/`
+
 **Time Spent:** ___ hours  
 **Status:** ⏳ Pending
 
 ---
 
-## ✅ Phase 3: UI Foundation System
+## ✅ Phase 4: UI Foundation System
 
 **Status:** ⏳ Pending  
 **Estimated Time:** 10-12 hours  
@@ -1507,12 +1882,12 @@ export function ExampleForm() {
 
 ---
 
-## ✅ Phase 4: Protected Routes & Layout Gates
+## ✅ Phase 3: Protected Routes & Layout Gates
 
 **Status:** ⏳ Pending  
 **Estimated Time:** 6-8 hours  
 **Priority:** HIGH  
-**Dependencies:** Phases 1-3 complete
+**Dependencies:** Phases 1-2 complete
 
 ### 4.1 Smart Homepage (Server Component)
 
@@ -1909,7 +2284,7 @@ export default async function SettingsPage() {
 **Status:** ⏳ Pending  
 **Estimated Time:** 6-8 hours  
 **Priority:** MEDIUM  
-**Dependencies:** Phase 4 complete
+**Dependencies:** Phase 3 complete
 
 ### 5.1 Create Database Schema
 
@@ -2346,7 +2721,7 @@ export default async function NotePage({
 **Status:** ⏳ Pending  
 **Estimated Time:** 4-6 hours  
 **Priority:** MEDIUM  
-**Dependencies:** Phase 4 complete
+**Dependencies:** Phase 3 complete
 
 ### 6.1 Install Zustand
 
@@ -3392,7 +3767,7 @@ NODE_ENV=production             # Set automatically by hosting platforms
 - [ ] No API keys in client code
 - [ ] Environment variables secured
 - [ ] CORS configured correctly
-- [ ] Rate limiting enabled (optional)
+- [ ] Rate limiting (skipped for now)
 
 ## Monitoring
 
@@ -3565,15 +3940,9 @@ npx supabase db push
    - ✅ Enable password recovery
    - ⬜ Disable email change confirmations (optional)
 
-### OAuth Providers (Optional)
+### OAuth Providers (Not in scope now — skip)
 
-To add Google, GitHub, etc.:
-
-1. Go to Authentication → Providers
-2. Enable desired provider
-3. Add OAuth credentials from provider
-4. Configure callback URL:
-   - `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
+Social login is deferred. Skip this section for now. You can add providers later without changing the core auth flow.
 
 ## Row Level Security (RLS)
 
@@ -3765,14 +4134,59 @@ npx supabase functions deploy my-function
 
 ---
 
+### 8.3 Security Headers (CSP, HSTS, etc.)
+
+Add strict security headers in `next.config.ts`.
+
+```ts
+// next.config.ts
+import type { NextConfig } from 'next'
+
+const ContentSecurityPolicy = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  "frame-ancestors 'none'",
+].join('; ')
+
+const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'Content-Security-Policy', value: ContentSecurityPolicy },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
+        ],
+      },
+    ]
+  },
+}
+
+export default nextConfig
+```
+
+Notes:
+- Update `connect-src` if you add more external APIs.
+- If you load fonts or analytics/CDNs, allow them in CSP accordingly.
+- Keep `X-Frame-Options: DENY` unless you intentionally embed the app.
+
+
 ## 📊 Total Project Timeline
 
 | Phase | Time Estimate | Priority | Status |
 |-------|---------------|----------|--------|
 | Phase 1: Foundation & DAL | 6-8 hours | CRITICAL | ⏳ Pending |
 | Phase 2: Authentication | 8-10 hours | HIGH | ⏳ Pending |
-| Phase 3: UI Foundation | 10-12 hours | HIGH | ⏳ Pending |
-| Phase 4: Protected Routes | 6-8 hours | HIGH | ⏳ Pending |
+| Phase 3: Protected Routes | 6-8 hours | HIGH | ⏳ Pending |
+| Phase 4: UI Foundation | 10-12 hours | HIGH | ⏳ Pending |
 | Phase 5: Database Operations | 6-8 hours | MEDIUM | ⏳ Pending |
 | Phase 6: Client State | 4-6 hours | MEDIUM | ⏳ Pending |
 | Phase 7: Testing | 8-10 hours | MEDIUM | ⏳ Pending |
